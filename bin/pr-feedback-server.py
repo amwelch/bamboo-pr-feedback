@@ -8,15 +8,24 @@ import hashlib
 import hmac
 
 def get_config(config_file="../config/config.json"):
+    '''
+    Loads and parses the json config file and returns
+    a config object
+    '''
     try:
         data = json.load(open(config_file))
+        return data
     except ValueError:
         print "Config file {} has invalid json.".format(config_file)
     except OSError:
         print "Config file {} does not exist".format(config_file)
-    return data
+    return {}
 
 def get_sha1_hmac(shared_secret, raw):
+     '''
+     Takes the shared secret and a raw string and generates
+     and returns a sha1 hmac 
+     '''
      hashed = hmac.new(shared_secret, raw, hashlib.sha1)
      return hashed.digest().encode("base64").rstrip("\n")
 
