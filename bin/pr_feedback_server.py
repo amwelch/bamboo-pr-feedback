@@ -4,10 +4,11 @@ import tornado.web
 import tornado.ioloop
 import requests
 import json
+import os
 import hashlib
 import hmac
 
-def get_config(config_file="../config/config.json"):
+def get_config(config_file):
     '''
     Loads and parses the json config file and returns
     a config object
@@ -77,16 +78,24 @@ class GithubHandler(tornado.web.RequestHandler):
         bamboo_data["pull_sha"] = data.get("pull_sha")
         bamboo_data["author"] = data.get("author")
  
-        params = ""
-        for k,v in bamboo_data.iteritems():
-            params += "?bamboo.variable.{}={}".format(k,v)          
-
-        url = bamboo_queue_build.format(host, port, plan, params)
-        headers = {}
-        headers['Accept'] = 'application/json'     
-        requests.post(url, auth=(user,password), headers=headers)  
-
         self.finish()
+
+def run_bamboo_job(plan, host, port, user, 
+    password, bamboo_data):
+    '''
+    Post to bamboo server to kick off a job.
+    '''
+    
+    params = ""
+    for k,v in bamboo_data.iteritems():
+        params += "?bamboo.variable.{}={}".format(k,v)          
+
+    url = bamboo_queue_build.format(host, port, plan, params)
+    headers = {}
+    headers['Accept'] = 'application/json'     
+    requests.post(url, auth=(user,password), headers=headers)  
+
+
 
 class BambooHandler(tornado.web.RequestHandler):
     def post(self):
@@ -95,7 +104,8 @@ class BambooHandler(tornado.web.RequestHandler):
         self.finish()
 
 def main():
-    config = get_config()
+    config_file = os.environ.get('BAMBOO_PR_FEEDBACK_CONFIG', "../config/config.json")
+    config = get_config(config_file)
     application = tornado.web.Application([
         (r"/gh", GithubHandler),
         (r"/bh", BambooHandler)
