@@ -34,7 +34,6 @@ class GithubHandler(tornado.web.RequestHandler):
     '''
     Handle posts from github hook
     '''
-    bamboo_queue_build = "https://{}:{}/bamboo/rest/api/latest/queue/{}?os_athType=basic{}"
     def verify_secret(self, request):
         '''
         Verify the shared secret, returns True on verified False otherwise
@@ -90,11 +89,12 @@ def run_bamboo_job(plan, host, port, user,
     for k,v in bamboo_data.iteritems():
         params += "?bamboo.variable.{}={}".format(k,v)          
 
+    bamboo_queue_build = "https://{}:{}/builds/rest/api/latest/queue/{}?os_athType=basic{}"
     url = bamboo_queue_build.format(host, port, plan, params)
     headers = {}
     headers['Accept'] = 'application/json'     
-    requests.post(url, auth=(user,password), headers=headers)  
-
+    ret = requests.post(url, auth=(user,password), headers=headers)  
+    pass
 
 
 class BambooHandler(tornado.web.RequestHandler):
