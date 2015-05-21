@@ -7,6 +7,7 @@ import json
 import os
 import hashlib
 import hmac
+import argparse
 
 def get_config(config_file):
     '''
@@ -96,21 +97,31 @@ def run_bamboo_job(plan, host, port, user,
     ret = requests.post(url, auth=(user,password), headers=headers)  
     pass
 
-
-class BambooHandler(tornado.web.RequestHandler):
-    def post(self):
-        print "placeholder"
-        self.write("placeholder")
-        self.finish()
+def parse_args():
+    p = argparse.ArgumentParser(description = \
+    '''
+    Connect to a chatserver and send some messages
+    ''')
+    p.add_argument('--ssl-cert', help='location of ssl cert', required=True)
+    p.add_argument('--ssl-key', help='location of ssl cert', required=True)
+    return p.parse_args()
 
 def main():
+    args = parse_args()
+
+    ssl_settings = {
+        "certfile": args.cert,
+        "key": args.key
+    }
+
     config_file = os.environ.get('BAMBOO_PR_FEEDBACK_CONFIG', "../config/config.json")
     config = get_config(config_file)
     application = tornado.web.Application([
         (r"/gh", GithubHandler),
         (r"/bh", BambooHandler)
     ])
-    application.listen(config.get("server_port", 80))
+    server = tornado.httpserver.HTTPServer(application, ssl_options=ssl_options)
+    server.listen(config.get("server_port", 80))
     tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == '__main__':
