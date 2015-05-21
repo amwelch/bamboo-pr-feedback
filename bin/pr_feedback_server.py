@@ -110,8 +110,8 @@ def main():
     args = parse_args()
 
     ssl_settings = {
-        "certfile": args.cert,
-        "key": args.key
+        "certfile": args.ssl_cert,
+        "key": args.ssl_key
     }
 
     config_file = os.environ.get('BAMBOO_PR_FEEDBACK_CONFIG', "../config/config.json")
