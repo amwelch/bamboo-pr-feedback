@@ -117,8 +117,7 @@ def main():
     config_file = os.environ.get('BAMBOO_PR_FEEDBACK_CONFIG', "../config/config.json")
     config = get_config(config_file)
     application = tornado.web.Application([
-        (r"/gh", GithubHandler),
-        (r"/bh", BambooHandler)
+        (r"/gh", GithubHandler)
     ])
     server = tornado.httpserver.HTTPServer(application, ssl_options=ssl_options)
     server.listen(config.get("server_port", 80))
