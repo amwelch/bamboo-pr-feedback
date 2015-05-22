@@ -70,7 +70,6 @@ class GithubHandler(tornado.web.RequestHandler):
             print "Recieved invalid json"
             print data
             return 
-
         plan = config.get("plan")
         host = config.get("bamboo_host")
         port = config.get("bamboo_port", 443)
@@ -80,7 +79,7 @@ class GithubHandler(tornado.web.RequestHandler):
         bamboo_data = {}
         bamboo_data["pull_num"] = data.get("number")
         bamboo_data["pull_sha"] = data.get("head", {}).get("sha")
- 
+
         run_bamboo_job(plan, host, port, user, password, bamboo_data) 
 
         self.finish()
@@ -93,7 +92,7 @@ def run_bamboo_job(plan, host, port, user,
     
     params = ""
     for k,v in bamboo_data.iteritems():
-        params += "?bamboo.variable.{}={}".format(k,v)          
+        params += "&bamboo.variable.{}={}".format(k,v)          
 
     bamboo_queue_build = "https://{}:{}/builds/rest/api/latest/queue/{}?os_athType=basic{}"
     url = bamboo_queue_build.format(host, port, plan, params)
@@ -105,7 +104,7 @@ def run_bamboo_job(plan, host, port, user,
 def parse_args():
     p = argparse.ArgumentParser(description = \
     '''
-    Connect to a chatserver and send some messages
+    Processes github hooks and activates bamboo builds via rest api
     ''')
     p.add_argument('--ssl-cert', help='location of ssl cert', required=True)
     p.add_argument('--ssl-key', help='location of ssl cert', required=True)

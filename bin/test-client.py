@@ -10,48 +10,49 @@ import hmac
 import pr_feedback_server
 
 #Copied from gh
-BODY_TEMPLATE = """
-{
+BODY_TEMPLATE ={
   "action": "opened",
-  "number": "{number}",
+  "number": "",
   "pull_request": {
     "url": "foo",
     "id": 14251,
-    "number": {number},
+    "number": "",
     "state": "open",
-    "locked": false,
+    "locked": False,
     "title": "test pr",
-    "body": "test webhook pr\r\n",
+    "body": "test webhook pr",
     "created_at": "2015-05-21T01:36:07Z",
     "updated_at": "2015-05-21T01:36:07Z",
-    "closed_at": null,
-    "merged_at": null,
-    "head": {
-      "sha": "{sha}",
-    }
+  },
+  "head": {
+    "sha": ""
   }
 }
-"""
+
 
 def parse_args():
     p = argparse.ArgumentParser(description = \
     '''
-    Connect to a chatserver and send some messages
+    Mimics a git hook
     ''')
     p.add_argument('--commit-sha', help='hash of the commit', required=True)
     p.add_argument('--pr-num', help='pull-request num', required=True)
     p.add_argument('--url', help='host to post to', required=True)
+    p.add_argument('--secret', help='Shared secret to use', required=True)
     return p.parse_args()
 
 def main():
     args = parse_args()
 
-    body = body.format(number=args.pr_num,sha=args.commit_sha)
+    body = BODY_TEMPLATE
+    body['number'] = args.pr_num
+    body['pull_request']["number"] = args.pr_num
+    body["head"]["sha"] = args.commit_sha
 
     headers = {}
-    headers['X-Hub-Signature'] = pr_feedback_server.get_sha1_hmac(args.secret, body)
+    headers['X-Hub-Signature'] = pr_feedback_server.get_sha1_hmac(args.secret, json.dumps(body))
 
-    requests.post(args.url, data=body, headers=headers)
+    requests.post(args.url, data=json.dumps(body), headers=headers)
 
 if __name__ == '__main__':
     main()
