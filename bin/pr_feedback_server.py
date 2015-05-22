@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import tornado.web
+import tornado.httpserver
 import tornado.ioloop
 import requests
 import json
@@ -28,18 +29,17 @@ def get_sha1_hmac(shared_secret, raw):
      Takes the shared secret and a raw string and generates
      and returns a sha1 hmac 
      '''
-     hashed = hmac.new(shared_secret, raw, hashlib.sha1)
-     return hashed.digest().encode("base64").rstrip("\n")
+     hashed = hmac.new(str(shared_secret), str(raw), hashlib.sha1).hexdigest()
+     return "sha1={}".format(hashed)
 
 class GithubHandler(tornado.web.RequestHandler):
     '''
     Handle posts from github hook
     '''
-    def verify_secret(self, request):
+    def verify_secret(self, request, config):
         '''
         Verify the shared secret, returns True on verified False otherwise
         '''
-        config = get_config()
         ss = config.get("github_shared_secret")
         if not ss:
             print "No shared secret configured (github_shared_secret)"
@@ -48,7 +48,7 @@ class GithubHandler(tornado.web.RequestHandler):
         if not gh_digest:
             print "Did not recieve digest from github. Do you have it configured in the hook?"
             return
-        local_digest = get_sha1_hmac(request.body)
+        local_digest = get_sha1_hmac(ss, request.body)
         if local_digest != gh_digest:
             print "Digest from github did not match our digest"
             print "GH   : {}".format(gh_digest)
@@ -58,15 +58,19 @@ class GithubHandler(tornado.web.RequestHandler):
             return True
 
     def post(self):
+        config_file = os.environ.get('BAMBOO_PR_FEEDBACK_CONFIG', "../config/config.json")
+        config = get_config(config_file)
 
+        if not self.verify_secret(self.request, config):
+            return
         data = self.request.body
         try:
             data = json.loads(data)
         except ValueError:
             print "Recieved invalid json"
             print data
- 
-        config = get_config()
+            return 
+
         plan = config.get("plan")
         host = config.get("bamboo_host")
         port = config.get("bamboo_port", 443)
@@ -74,10 +78,11 @@ class GithubHandler(tornado.web.RequestHandler):
         password = config.get("bamboo_password")       
 
         bamboo_data = {}
-        bamboo_data["pull_num"] = data.get("pull_num")
-        bamboo_data["pull_sha"] = data.get("pull_sha")
-        bamboo_data["author"] = data.get("author")
+        bamboo_data["pull_num"] = data.get("number")
+        bamboo_data["pull_sha"] = data.get("head", {}).get("sha")
  
+        run_bamboo_job(plan, host, port, user, password, bamboo_data) 
+
         self.finish()
 
 def run_bamboo_job(plan, host, port, user, 
@@ -111,7 +116,7 @@ def main():
 
     ssl_settings = {
         "certfile": args.ssl_cert,
-        "key": args.ssl_key
+        "keyfile": args.ssl_key
     }
 
     config_file = os.environ.get('BAMBOO_PR_FEEDBACK_CONFIG', "../config/config.json")
@@ -119,7 +124,7 @@ def main():
     application = tornado.web.Application([
         (r"/gh", GithubHandler)
     ])
-    server = tornado.httpserver.HTTPServer(application, ssl_options=ssl_options)
+    server = tornado.httpserver.HTTPServer(application, ssl_options=ssl_settings)
     server.listen(config.get("server_port", 80))
     tornado.ioloop.IOLoop.instance().start()
 
