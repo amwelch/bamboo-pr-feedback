@@ -15,7 +15,7 @@ import argparse
 #Since bamboo does not have api tokens you will need to provide a real user's password
 #  If you don't want to store the password in plaintext in the config file you will
 #  be prompted for it when the server starts up
-password = None
+bamboo_password = None
 
 
 def get_config(config_file):
@@ -83,7 +83,7 @@ class GithubHandler(tornado.web.RequestHandler):
         host = config.get("bamboo_host")
         port = config.get("bamboo_port", 443)
         user = config.get("bamboo_user")
-        password = config.get("bamboo_password", password)       
+        password = config.get("bamboo_password", bamboo_password)
 
         bamboo_data = {}
         bamboo_data["pull_num"] = data.get("number")
@@ -108,7 +108,7 @@ def run_bamboo_job(plan, host, port, user,
     headers = {}
     headers['Accept'] = 'application/json'     
     ret = requests.post(url, auth=(user,password), headers=headers)  
-    pass
+    print "Running commit: {}".format(bamboo_data['pull_sha'])
 
 def parse_args():
     p = argparse.ArgumentParser(description = \
@@ -135,9 +135,9 @@ def main():
     server = tornado.httpserver.HTTPServer(application, ssl_options=ssl_settings)
     server.listen(config.get("server_port", 80))
 
-    global password
     if not config.get('bamboo_password'):
-        password = getpass.getpass('Please enter your bamboo password: \n').strip()
+        global bamboo_password
+        bamboo_password = getpass.getpass('Please enter your bamboo password: \n').strip()
 
     print "Listening on port: {}".format(config.get("server_port", 80))
     tornado.ioloop.IOLoop.instance().start()
