@@ -23,10 +23,10 @@ BODY_TEMPLATE ={
     "body": "test webhook pr",
     "created_at": "2015-05-21T01:36:07Z",
     "updated_at": "2015-05-21T01:36:07Z",
+    "head": {
+       "sha": ""
+    }
   },
-  "head": {
-    "sha": ""
-  }
 }
 
 
@@ -47,7 +47,7 @@ def main():
     body = BODY_TEMPLATE
     body['number'] = args.pr_num
     body['pull_request']["number"] = args.pr_num
-    body["head"]["sha"] = args.commit_sha
+    body['pull_request']["head"]["sha"] = args.commit_sha
 
     headers = {}
     headers['X-Hub-Signature'] = pr_feedback_server.get_sha1_hmac(args.secret, json.dumps(body))
