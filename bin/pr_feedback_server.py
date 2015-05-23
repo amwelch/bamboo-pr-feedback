@@ -10,6 +10,13 @@ import hashlib
 import hmac
 import argparse
 
+
+#Since bamboo does not have api tokens you will need to provide a real user's password
+#  If you don't want to store the password in plaintext in the config file you will
+#  be prompted for it when the server starts up
+password = None
+
+
 def get_config(config_file):
     '''
     Loads and parses the json config file and returns
@@ -36,6 +43,7 @@ class GithubHandler(tornado.web.RequestHandler):
     '''
     Handle posts from github hook
     '''
+
     def verify_secret(self, request, config):
         '''
         Verify the shared secret, returns True on verified False otherwise
@@ -74,7 +82,7 @@ class GithubHandler(tornado.web.RequestHandler):
         host = config.get("bamboo_host")
         port = config.get("bamboo_port", 443)
         user = config.get("bamboo_user")
-        password = config.get("bamboo_password")       
+        password = config.get("bamboo_password", password)       
 
         bamboo_data = {}
         bamboo_data["pull_num"] = data.get("number")
@@ -125,6 +133,11 @@ def main():
     ])
     server = tornado.httpserver.HTTPServer(application, ssl_options=ssl_settings)
     server.listen(config.get("server_port", 80))
+
+    global password
+    if not config.get('bamboo_password'):
+        password = raw_input('Please enter your bamboo password: \n').strip()
+
     tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == '__main__':
