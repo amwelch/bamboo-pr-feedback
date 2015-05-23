@@ -3,6 +3,7 @@
 import tornado.web
 import tornado.httpserver
 import tornado.ioloop
+import getpass
 import requests
 import json
 import os
@@ -136,7 +137,7 @@ def main():
 
     global password
     if not config.get('bamboo_password'):
-        password = raw_input('Please enter your bamboo password: \n').strip()
+        password = getpass.getpass('Please enter your bamboo password: \n').strip()
 
     tornado.ioloop.IOLoop.instance().start()
 
