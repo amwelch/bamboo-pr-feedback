@@ -85,9 +85,10 @@ class GithubHandler(tornado.web.RequestHandler):
         user = config.get("bamboo_user")
         password = config.get("bamboo_password", bamboo_password)
 
+        #Required fields, unsafe get
         bamboo_data = {}
-        bamboo_data["pull_num"] = data.get("number")
-        bamboo_data["pull_sha"] = data.get("pull_request", {}).get("head", {}).get("sha")
+        bamboo_data["pull_num"] = data["number"]
+        bamboo_data["pull_sha"] = data["pull_request"]["head"]["sha"]
 
         run_bamboo_job(plan, host, port, user, password, bamboo_data) 
 
