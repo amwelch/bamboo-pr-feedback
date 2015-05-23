@@ -87,7 +87,7 @@ class GithubHandler(tornado.web.RequestHandler):
 
         bamboo_data = {}
         bamboo_data["pull_num"] = data.get("number")
-        bamboo_data["pull_sha"] = data.get("pull_request", {}).data.get("head", {}).get("sha")
+        bamboo_data["pull_sha"] = data.get("pull_request", {}).get("head", {}).get("sha")
 
         run_bamboo_job(plan, host, port, user, password, bamboo_data) 
 
