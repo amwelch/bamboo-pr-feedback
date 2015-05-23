@@ -139,6 +139,7 @@ def main():
     if not config.get('bamboo_password'):
         password = getpass.getpass('Please enter your bamboo password: \n').strip()
 
+    print "Listening on port: {}".format(config.get("server_port", 80))
     tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == '__main__':
