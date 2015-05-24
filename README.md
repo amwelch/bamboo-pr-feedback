@@ -25,22 +25,29 @@ This webserver does support an alternative setup. If a password is not configure
 
 config will be read from config/config.json by default. The path can be set with the environment variable BAMBOO_PR_FEEDBACK_CONFIG.
 
-Example config:
+Example config.json:
 
-  "server_port": PORT,
-  "github_shared_secret": SECRET,
-  "plan": BAMBOO_PLAN_NAME,  
-  "bamboo_host": EXAMPLE.ATLASSIAN.NET,
-  "bamboo_port": BAMBOO_PORT,
-  "bamboo_user": USER,
-  "bamboo_password": PASSWORD #optional (see note above)
+	"server_port": PORT,
+	"github_shared_secret": SECRET,
+	"plan": BAMBOO_PLAN_NAME,  
+	"bamboo_host": EXAMPLE.ATLASSIAN.NET,
+	"bamboo_port": BAMBOO_PORT,
+	"bamboo_user": USER,
+	"bamboo_password": PASSWORD #optional (see note above)
 
 ##Usage
 
-pr_feedback_server.py --ssl-cert PATH_TO_SSL_CERT --ssl-key PATH_TO_SSL_KEY
+	pr_feedback_server.py --ssl-cert PATH_TO_SSL_CERT --ssl-key PATH_TO_SSL_KEY
 
 ##Testing
 
-test-client.py will mimic a github webhook post
-./test-client.py --pr-num SOME_PULL_REQUEST --commit-sha SOME_COMMIT_HASH --url https://localhost:10010/gh --secret SOME_SECRET
+	#test-client.py will mimic a github webhook post
+	./test-client.py --pr-num SOME_PULL_REQUEST --commit-sha SOME_COMMIT_HASH --url https://localhost:10010/gh --secret SOME_SECRET
 
+##Author
+
+Alexander welch <amwelch3 (at) gmail.com>
+
+##License
+
+MIT
