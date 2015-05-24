@@ -54,4 +54,5 @@ docs/_build/
 target/
 
 #config
-config/
+config/config.json
+config/*.sh

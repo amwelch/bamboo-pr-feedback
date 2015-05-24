@@ -1,0 +1,9 @@
+{
+  "plan": "SOME_PLAN",
+  "bamboo_host": "localhost",
+  "bamboo_port": 8080,
+  "bamboo_user": "operations",
+  "server_port": 443,
+  "github_shared_secret": "SOME_SECRET",
+  "bamboo_password": "SOME_PASSWORD"
+}
