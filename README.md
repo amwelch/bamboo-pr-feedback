@@ -7,7 +7,7 @@ A simple web-server that fires a bamboo build plan on recipt of a github webhook
 
 ##Installation
 
-```sudo pip install -r requirements.txt
+	sudo pip install -r requirements.txt
 
 ##Configuration
 
