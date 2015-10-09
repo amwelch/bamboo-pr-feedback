@@ -3,7 +3,6 @@
 import requests
 import fnmatch
 import subprocess
-import json
 import argparse
 
 
@@ -18,14 +17,13 @@ def post_result(base, failed_files, api_key, sha):
     else:
         status = 'success'
         description = 'Lint passed'
-        link = 'http://i39.tinypic.com/rs9afq.jpg'
+        link = 'http://i.imgur.com/DPVM1.png'
     data = {"state": status, "target_url": link,
             "description": description, "context": "lint"}
     headers = {}
     headers['Accept'] = 'application/json'
-    import ipdb; ipdb.set_trace()
-    req = requests.post(url, json=data, headers=headers)
-    print req
+    requests.post(url, json=data, headers=headers)
+
 
 def run_lint(path, files, lint='pyflakes', pattern='*.py'):
     failed = []
@@ -65,7 +63,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-    import ipdb; ipdb.set_trace()
     files = get_changed_files(args.gh_api, args.repo_base, args.pr_num)
     failed = run_lint(args.path, files)
     post_result(args.repo_base, failed, args.gh_api, args.sha)
