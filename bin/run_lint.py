@@ -4,6 +4,7 @@ import requests
 import fnmatch
 import subprocess
 import argparse
+import json
 
 
 def post_result(base, failed_files, api_key, sha):
