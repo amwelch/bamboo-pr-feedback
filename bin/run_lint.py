@@ -22,7 +22,7 @@ def post_result(base, failed_files, api_key, sha):
             "description": description, "context": "lint"}
     headers = {}
     headers['Accept'] = 'application/json'
-    requests.post(url, json=data, headers=headers)
+    requests.post(url, data=json.dumps(data), headers=headers)
 
 
 def run_lint(path, files, lint='pyflakes', pattern='*.py'):
