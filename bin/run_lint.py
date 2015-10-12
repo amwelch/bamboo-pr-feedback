@@ -88,18 +88,24 @@ def parse_args():
     p.add_argument('--pr-num', help='pull-request num', required=True)
     p.add_argument('--repo-base', help='repo-base-url', required=True)
     p.add_argument('--path', help='path to repo', required=True)
-    p.add_argument('--gh-api', help='gh api key', required=True)
+    p.add_argument('--gh-api-write', help='gh api key used to post comments/status', required=True)
+    p.add_argument('--gh-api-read', help='gh api key used to read changed files (defaults to write if not specified)')
     p.add_argument('--sha', help='commit hash', required=True)
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    files = get_changed_files(args.gh_api, args.repo_base, args.pr_num)
+    write_key = args.gh_api_write
+    if args.gh_api_read:
+        read_key = args.gh_api_read
+    else:
+        read_key = args.gh_api_write
+    files = get_changed_files(read_key, args.repo_base, args.pr_num)
     failed, errors = run_lint(args.path, files)
     errors = get_errors(errors)
-    post_errors(errors, args.repo_base, args.gh_api, args.sha)
-    post_result(args.repo_base, failed, args.gh_api, args.sha)
+    post_errors(errors, args.repo_base, read_key, args.sha)
+    post_result(args.repo_base, failed, write_key, args.sha)
 
 if __name__ == '__main__':
     main()
