@@ -41,8 +41,8 @@ To use run_lint.py you will need write permission to the status api and read per
 ##Usage
 
 	pr_feedback_server.py --ssl-cert PATH_TO_SSL_CERT --ssl-key PATH_TO_SSL_KEY
-        # Run lint and update github comment status for the lint context
-        run_lint.py --pr-num NUM --repo-base  https://api.github.com/repos/OWNER/REPO --path PATH_TO_LOCAL_REPO --gh-api-write API_KEY  --sha COMMIT_SHA
+	#Run lint and update github comment status for the lint context
+	run_lint.py --pr-num NUM --repo-base  https://api.github.com/repos/OWNER/REPO --path PATH_TO_LOCAL_REPO --gh-api-write API_KEY  --sha COMMIT_SHA
 
 ##Testing
 
