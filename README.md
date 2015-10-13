@@ -35,9 +35,14 @@ Example config.json:
 	"bamboo_user": USER,
 	"bamboo_password": PASSWORD #optional (see note above)
 
+###A not on Github authentication
+To use run_lint.py you will need write permission to the status api and read permission on any repos you are operating on. Because of limitations in the OAuth scoping it can be necessary to use two seperate keys (one on an account with private repo read only access and one on an account with write but only the status api granted to the key). To support this there is an optional argument --gh-api-read that will be used to read comments on the repo. If the argument isn't used then the same key will be used for everything.
+
 ##Usage
 
 	pr_feedback_server.py --ssl-cert PATH_TO_SSL_CERT --ssl-key PATH_TO_SSL_KEY
+        # Run lint and update github comment status for the lint context
+        run_lint.py --pr-num NUM --repo-base  https://api.github.com/repos/OWNER/REPO --path PATH_TO_LOCAL_REPO --gh-api-write API_KEY  --sha COMMIT_SHA
 
 ##Testing
 

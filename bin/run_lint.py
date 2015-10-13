@@ -8,13 +8,18 @@ import json
 
 
 def get_header_string():
+    ''' The string that we use to identify comments written by the linter '''
     buf = '''AUTOMATIC LINT RESULTS DO NOT EDIT\n'''
     return buf
 
 
 def get_lint_comment(base, api_key, pr_num):
-    url = base + '/issues/{num}/comments?access_token={api_key}'.format(num=pr_num,
-                                                                       api_key=api_key)
+    '''
+    Retrieves all comments on an issue from github and searches for a
+    comment starting with the string returned by get_header_string()
+    '''
+    template = '/issues/{num}/comments?access_token={api_key}'
+    url = base + template.format(num=pr_num, api_key=api_key)
     headers = {}
     headers['Accept'] = 'application/json'
     comment_id = None
@@ -26,25 +31,37 @@ def get_lint_comment(base, api_key, pr_num):
 
 
 def create_or_update_lint_comment(base, api_key, pr_num, errors):
+    '''
+    If we haven't already made a comment on a pull request then make
+    a new one. Otherwise update that comment with the current error set.
+    '''
     body = get_header_string() + '\n' + generate_buf(errors)
     comment_id = get_lint_comment(base, api_key, pr_num)
     data = {'body': body}
     if comment_id:
-        url = base + '/issues/comments/{id}?access_token={api_key}'.format(num=pr_num,
-                                                                                 id=comment_id,
-                                                                                 api_key=api_key)
+        template = '/issues/comments/{comment_id}?access_token={api_key}'
+        url = base + template.format(num=pr_num,
+                                     comment_id=comment_id, api_key=api_key)
         requests.patch(url, headers=get_headers(), data=json.dumps(data))
     else:
-        url = base + '/issues/{num}/comments?access_token={api_key}'.format(num=pr_num,
-                                                                            api_key=api_key)
+        template = '/issues/{num}/comments?access_token={api_key}'
+        url = base + template.format(num=pr_num, api_key=api_key)
         requests.post(url, headers=get_headers(), data=json.dumps(data))
 
+
 def get_headers():
+    '''
+    General set of headers used in requests to github
+    '''
     return {'Accept': 'application/json'}
 
+
 def post_result(base, failed_files, api_key, sha):
-    url = base + '/statuses/{sha}?access_token={api_key}'.format(sha=sha,
-                                                                 api_key=api_key)
+    '''
+    Update the status for teh lint context per commit SHA
+    '''
+    template = '/statuses/{sha}?access_token={api_key}'
+    url = base + template.format(sha=sha, api_key=api_key)
     if any(failed_files):
         status = 'failure'
         description = 'Lint failed'
@@ -53,6 +70,7 @@ def post_result(base, failed_files, api_key, sha):
     else:
         status = 'success'
         description = 'Lint passed'
+        # Just ship it
         link = 'http://i.imgur.com/DPVM1.png'
     data = {"state": status, "target_url": link,
             "description": description, "context": "lint"}
@@ -62,6 +80,9 @@ def post_result(base, failed_files, api_key, sha):
 
 
 def generate_buf(errors):
+    '''
+    Generate the body of the comment given a set of errors
+    '''
     if errors:
         msg = []
         for fname, errors in errors.iteritems():
@@ -74,9 +95,13 @@ def generate_buf(errors):
         msg = 'Lint all good :shipit:'
     return msg
 
+
 def post_errors(errors, base, api_key, sha):
-    url = base + '/commits/{sha}/comments?access_token={api_key}'.format(sha=sha,
-                                                                         api_key=api_key)
+    '''
+    One comment per file per commit with the violations.
+    '''
+    template = '/commits/{sha}/comments?access_token={api_key}'
+    url = base + template.format(sha=sha, api_key=api_key)
     for fname, errors in errors.iteritems():
         msg = generate_buf(errors)
         data = {'body': msg,
@@ -89,10 +114,12 @@ def post_errors(errors, base, api_key, sha):
 
 
 def get_errors(lint_output):
+    '''
+    Given the lint output extract a dict of {fname: [errors]}
+    '''
     errors = {}
     for line in lint_output:
         if line:
-            #  lib/deepy/jobs_daemon.py:7: 'foo' imported but unused
             fname, num, errstr = line.split(':')
             errors.setdefault(fname, [])
             errors[fname].append((num, errstr))
@@ -100,6 +127,10 @@ def get_errors(lint_output):
 
 
 def run_lint(path, files, lint='pyflakes', pattern='*.py'):
+    '''
+    Given a lint and file pattern run the lint over all files in the
+    change set that match that pattern.
+    '''
     failed = []
     output = []
     for fname in files:
@@ -117,8 +148,8 @@ def get_changed_files(api_key, repo_base, pr_num):
     '''
     Retrieve the list of changed files for a pull request
     '''
-    "https://api.github.com/repos/deepfield/pipedream/statuses/$bamboo_pull_sha?access_token={api_key}"
-    url = repo_base + "/pulls/{num}/files?access_token={api_key}".format(num=pr_num, api_key=api_key)
+    template = "/pulls/{num}/files?access_token={api_key}"
+    url = repo_base + template.format(num=pr_num, api_key=api_key)
     req = requests.get(url)
     data = req.json()
     files = [v['filename'] for v in data]
@@ -132,8 +163,12 @@ def parse_args():
     p.add_argument('--pr-num', help='pull-request num', required=True)
     p.add_argument('--repo-base', help='repo-base-url', required=True)
     p.add_argument('--path', help='path to repo', required=True)
-    p.add_argument('--gh-api-write', help='gh api key used to post comments/status', required=True)
-    p.add_argument('--gh-api-read', help='gh api key used to read changed files (defaults to write if not specified)')
+    p.add_argument('--gh-api-write',
+                   help='gh api key used to post comments/status',
+                   required=True)
+    p.add_argument('--gh-api-read',
+                   help='gh api key used to read changed files ' +
+                        '(defaults to write if not specified)')
     p.add_argument('--sha', help='commit hash', required=True)
     return p.parse_args()
 
