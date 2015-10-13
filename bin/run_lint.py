@@ -57,6 +57,9 @@ def get_headers():
 
 
 def post_result(base, failed_files, api_key, sha):
+    '''
+    Update the status for teh lint context per commit SHA
+    '''
     template = '/statuses/{sha}?access_token={api_key}'
     url = base + template.format(sha=sha, api_key=api_key)
     if any(failed_files):
@@ -67,6 +70,7 @@ def post_result(base, failed_files, api_key, sha):
     else:
         status = 'success'
         description = 'Lint passed'
+        # Just ship it
         link = 'http://i.imgur.com/DPVM1.png'
     data = {"state": status, "target_url": link,
             "description": description, "context": "lint"}
@@ -76,6 +80,9 @@ def post_result(base, failed_files, api_key, sha):
 
 
 def generate_buf(errors):
+    '''
+    Generate the body of the comment given a set of errors
+    '''
     if errors:
         msg = []
         for fname, errors in errors.iteritems():
@@ -90,6 +97,9 @@ def generate_buf(errors):
 
 
 def post_errors(errors, base, api_key, sha):
+    '''
+    One comment per file per commit with the violations.
+    '''
     template = '/commits/{sha}/comments?access_token={api_key}'
     url = base + template.format(sha=sha, api_key=api_key)
     for fname, errors in errors.iteritems():
@@ -104,6 +114,9 @@ def post_errors(errors, base, api_key, sha):
 
 
 def get_errors(lint_output):
+    '''
+    Given the lint output extract a dict of {fname: [errors]}
+    '''
     errors = {}
     for line in lint_output:
         if line:
@@ -114,6 +127,10 @@ def get_errors(lint_output):
 
 
 def run_lint(path, files, lint='pyflakes', pattern='*.py'):
+    '''
+    Given a lint and file pattern run the lint over all files in the
+    change set that match that pattern.
+    '''
     failed = []
     output = []
     for fname in files:
