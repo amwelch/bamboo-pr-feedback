@@ -71,7 +71,7 @@ def generate_buf(errors):
                 msg.append('\t{}:\t{}'.format(line_num, errstr))
         msg = '\n'.join(msg)
     else:
-        msg = 'Lint all good :squirrel'
+        msg = 'Lint all good :shipit:'
     return msg
 
 def post_errors(errors, base, api_key, sha):
