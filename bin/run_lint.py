@@ -7,6 +7,41 @@ import argparse
 import json
 
 
+def get_header_string():
+    buf = '''AUTOMATIC LINT RESULTS DO NOT EDIT\n'''
+    return buf
+
+
+def get_lint_comment(base, api_key, pr_num):
+    url = base + '/issues/{num}/comments?access_token={api_key}'.format(num=pr_num,
+                                                                       api_key=api_key)
+    headers = {}
+    headers['Accept'] = 'application/json'
+    comment_id = None
+    req = requests.get(url, headers=headers)
+    for comment in req.json():
+        if comment['body'].startswith(get_header_string()):
+            comment_id = comment['id']
+    return comment_id
+
+
+def create_or_update_lint_comment(base, api_key, pr_num, errors):
+    body = get_header_string() + '\n' + generate_buf(errors)
+    comment_id = get_lint_comment(base, api_key, pr_num)
+    data = {'body': body}
+    if comment_id:
+        url = base + '/issues/comments/{id}?access_token={api_key}'.format(num=pr_num,
+                                                                                 id=comment_id,
+                                                                                 api_key=api_key)
+        requests.patch(url, headers=get_headers(), data=json.dumps(data))
+    else:
+        url = base + '/issues/{num}/comments?access_token={api_key}'.format(num=pr_num,
+                                                                            api_key=api_key)
+        requests.post(url, headers=get_headers(), data=json.dumps(data))
+
+def get_headers():
+    return {'Accept': 'application/json'}
+
 def post_result(base, failed_files, api_key, sha):
     url = base + '/statuses/{sha}?access_token={api_key}'.format(sha=sha,
                                                                  api_key=api_key)
@@ -26,15 +61,24 @@ def post_result(base, failed_files, api_key, sha):
     requests.post(url, data=json.dumps(data), headers=headers)
 
 
+def generate_buf(errors):
+    if errors:
+        msg = []
+        for fname, errors in errors.iteritems():
+            msg += ['Lint Errors for {}'.format(fname)]
+            for error in errors:
+                line_num, errstr = error
+                msg.append('\t{}:\t{}'.format(line_num, errstr))
+        msg = '\n'.join(msg)
+    else:
+        msg = 'Lint all good :shipit:'
+    return msg
+
 def post_errors(errors, base, api_key, sha):
     url = base + '/commits/{sha}/comments?access_token={api_key}'.format(sha=sha,
                                                                          api_key=api_key)
     for fname, errors in errors.iteritems():
-        msg = ['Lint Errors for {}'.format(fname)]
-        for error in errors:
-            line_num, errstr = error
-            msg.append('\t{}:\t{}'.format(line_num, errstr))
-        msg = '\n'.join(msg)
+        msg = generate_buf(errors)
         data = {'body': msg,
                 'path': fname,
                 'position': 1,
@@ -104,7 +148,8 @@ def main():
     files = get_changed_files(read_key, args.repo_base, args.pr_num)
     failed, errors = run_lint(args.path, files)
     errors = get_errors(errors)
-    post_errors(errors, args.repo_base, read_key, args.sha)
+    create_or_update_lint_comment(args.repo_base, read_key,
+                                  args.pr_num, errors)
     post_result(args.repo_base, failed, write_key, args.sha)
 
 if __name__ == '__main__':
