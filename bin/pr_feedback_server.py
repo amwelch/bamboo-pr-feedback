@@ -37,7 +37,7 @@ def is_commit(msg):
     '''
     Check to make sure the github hook is firing on a commit.
     '''
-    return msg.get('action') == 'synchronize'
+    return msg.get('action') in ['synchronize', 'opened']
 
 
 def get_sha1_hmac(shared_secret, raw):
