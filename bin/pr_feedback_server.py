@@ -32,13 +32,22 @@ def get_config(config_file):
         print "Config file {} does not exist".format(config_file)
     return {}
 
+
+def is_commit(msg):
+    '''
+    Check to make sure the github hook is firing on a commit.
+    '''
+    return msg.get('action') == 'synchronize'
+
+
 def get_sha1_hmac(shared_secret, raw):
-     '''
-     Takes the shared secret and a raw string and generates
-     and returns a sha1 hmac 
-     '''
-     hashed = hmac.new(str(shared_secret), str(raw), hashlib.sha1).hexdigest()
-     return "sha1={}".format(hashed)
+    '''
+    Takes the shared secret and a raw string and generates
+    and returns a sha1 hmac
+    '''
+    hashed = hmac.new(str(shared_secret), str(raw), hashlib.sha1).hexdigest()
+    return "sha1={}".format(hashed)
+
 
 class GithubHandler(tornado.web.RequestHandler):
     '''
@@ -78,48 +87,56 @@ class GithubHandler(tornado.web.RequestHandler):
         except ValueError:
             print "Recieved invalid json"
             print data
-            return 
+            return
+
+        if not is_commit(data):
+            print "Not a commit hook"
+            return
+
         plan = config.get("plan")
         host = config.get("bamboo_host")
         port = config.get("bamboo_port", 443)
         user = config.get("bamboo_user")
         password = config.get("bamboo_password", bamboo_password)
 
-        #Required fields, unsafe get
+        # Required fields, unsafe get
         bamboo_data = {}
         bamboo_data["pull_num"] = data["number"]
         bamboo_data["pull_sha"] = data["pull_request"]["head"]["sha"]
         bamboo_data["pull_ref"] = data["pull_request"]["head"]["ref"]
 
-        run_bamboo_job(plan, host, port, user, password, bamboo_data) 
+        run_bamboo_job(plan, host, port, user, password, bamboo_data)
 
         self.finish()
 
-def run_bamboo_job(plan, host, port, user, 
-    password, bamboo_data):
+
+def run_bamboo_job(plan, host, port, user,
+                   password, bamboo_data):
     '''
     Post to bamboo server to kick off a job.
     '''
-    
+
     params = ""
-    for k,v in bamboo_data.iteritems():
-        params += "&bamboo.variable.{}={}".format(k,v)          
+    for k, v in bamboo_data.iteritems():
+        params += "&bamboo.variable.{}={}".format(k, v)
 
     bamboo_queue_build = "https://{}:{}/builds/rest/api/latest/queue/{}?os_athType=basic{}"
     url = bamboo_queue_build.format(host, port, plan, params)
     headers = {}
-    headers['Accept'] = 'application/json'     
-    ret = requests.post(url, auth=(user,password), headers=headers)  
+    headers['Accept'] = 'application/json'
+    requests.post(url, auth=(user, password), headers=headers)
     print "Running commit: {}".format(bamboo_data['pull_sha'])
 
+
 def parse_args():
-    p = argparse.ArgumentParser(description = \
+    p = argparse.ArgumentParser(description=\
     '''
     Processes github hooks and activates bamboo builds via rest api
     ''')
     p.add_argument('--ssl-cert', help='location of ssl cert', required=True)
     p.add_argument('--ssl-key', help='location of ssl cert', required=True)
     return p.parse_args()
+
 
 def main():
     args = parse_args()
