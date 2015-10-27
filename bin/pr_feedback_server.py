@@ -37,7 +37,12 @@ def is_commit(msg):
     '''
     Check to make sure the github hook is firing on a commit.
     '''
-    return msg.get('action') in ['synchronize', 'opened']
+    accepted = ['synchronize', 'opened']
+    commit = msg.get('action') in accepted
+    if not commit:
+        print "Not a commit hook. Action: {}, Accepted {}".format(msg.get('action'),
+                                                                  accepted)
+    return commit
 
 
 def get_sha1_hmac(shared_secret, raw):
@@ -90,7 +95,6 @@ class GithubHandler(tornado.web.RequestHandler):
             return
 
         if not is_commit(data):
-            print "Not a commit hook"
             return
 
         plan = config.get("plan")
