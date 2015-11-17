@@ -128,8 +128,12 @@ def run_bamboo_job(plan, host, port, user,
     url = bamboo_queue_build.format(host, port, plan, params)
     headers = {}
     headers['Accept'] = 'application/json'
-    requests.post(url, auth=(user, password), headers=headers)
-    print "Running commit: {}".format(bamboo_data['pull_sha'])
+    res = requests.post(url, auth=(user, password), headers=headers)
+    if res.status_code != 200:
+        print "Error starting job"
+        print res.json()
+    else:
+        print "Running commit: {}".format(bamboo_data['pull_sha'])
 
 
 def parse_args():
