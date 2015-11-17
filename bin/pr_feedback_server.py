@@ -37,7 +37,7 @@ def is_commit(msg):
     '''
     Check to make sure the github hook is firing on a commit.
     '''
-    accepted = ['synchronize', 'opened']
+    accepted = ['synchronize', 'opened', 'reopened']
     commit = msg.get('action') in accepted
     if not commit:
         print "Not a commit hook. Action: {}, Accepted {}".format(msg.get('action'),
