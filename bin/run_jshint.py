@@ -56,7 +56,7 @@ def get_headers():
     return {'Accept': 'application/json'}
 
 
-def post_result(base, failed_files, api_key, sha):
+def post_result(base, failed_files, api_key, sha, prefix='JS'):
     '''
     Update the status for teh lint context per commit SHA
     '''
@@ -64,16 +64,16 @@ def post_result(base, failed_files, api_key, sha):
     url = base + template.format(sha=sha, api_key=api_key)
     if any(failed_files):
         status = 'failure'
-        description = 'Lint failed'
+        description = '{} Lint failed'.format(prefix)
         # Sad Panda
         link = 'http://fc08.deviantart.net/fs70/f/2010/149/a/7/Sad_Panda_Chibi_by_mongrelssister.png'
     else:
         status = 'success'
-        description = 'Lint passed'
+        description = '{} Lint passed'.format(prefix)
         # Just ship it
         link = 'http://i.imgur.com/DPVM1.png'
     data = {"state": status, "target_url": link,
-            "description": description, "context": "lint"}
+            "description": description, "context": "{} lint".format(prefix)}
     headers = {}
     headers['Accept'] = 'application/json'
     requests.post(url, data=json.dumps(data), headers=headers)
