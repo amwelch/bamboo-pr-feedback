@@ -7,9 +7,9 @@ import argparse
 import json
 
 
-def get_header_string():
+def get_header_string(prefix='JS'):
     ''' The string that we use to identify comments written by the linter '''
-    buf = '''AUTOMATIC LINT RESULTS DO NOT EDIT\n'''
+    buf = '''AUTOMATIC {} LINT RESULTS DO NOT EDIT\n'''.format(prefix)
     return buf
 
 
