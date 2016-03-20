@@ -64,14 +64,14 @@ def post_result(base, failed_files, api_key, sha, prefix='Python'):
     url = base + template.format(sha=sha, api_key=api_key)
     if any(failed_files):
         status = 'failure'
-        description = '{} Lint failed'.format(prefix)
+        description = '{} lint failed'.format(prefix)
         # Sad Panda
-        link = 'http://fc08.deviantart.net/fs70/f/2010/149/a/7/Sad_Panda_Chibi_by_mongrelssister.png'
+        link = ''
     else:
-        status = '{} success'.format(prefix)
-        description = 'Lint passed'
+        status = 'success'
+        description = '{} lint passed'.format(prefix)
         # Just ship it
-        link = 'http://i.imgur.com/DPVM1.png'
+        link = ''
     data = {"state": status, "target_url": link,
             "description": description, "context": "{} lint".format(prefix)}
     headers = {}
