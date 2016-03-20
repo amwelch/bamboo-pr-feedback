@@ -65,13 +65,11 @@ def post_result(base, failed_files, api_key, sha, prefix='JS'):
     if any(failed_files):
         status = 'failure'
         description = '{} Lint failed'.format(prefix)
-        # Sad Panda
-        link = 'http://fc08.deviantart.net/fs70/f/2010/149/a/7/Sad_Panda_Chibi_by_mongrelssister.png'
+        link = ''
     else:
         status = 'success'
-        description = '{} Lint passed'.format(prefix)
-        # Just ship it
-        link = 'http://i.imgur.com/DPVM1.png'
+        description = '{} lint passed'.format(prefix)
+        link = ''
     data = {"state": status, "target_url": link,
             "description": description, "context": "{} lint".format(prefix)}
     headers = {}
@@ -164,8 +162,10 @@ def get_changed_files(api_key, repo_base, pr_num):
     '''
     template = "/pulls/{num}/files?access_token={api_key}"
     url = repo_base + template.format(num=pr_num, api_key=api_key)
+    print url
     req = requests.get(url)
     data = req.json()
+    print data
     files = [v['filename'] for v in data]
     return files
 
