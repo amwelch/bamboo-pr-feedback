@@ -1,19 +1,20 @@
 #! /usr/bin/env python
 
 import requests
+import re
 import fnmatch
 import subprocess
 import argparse
 import json
 
 
-def get_header_string(prefix='PYTHON'):
+def get_header_string(language):
     ''' The string that we use to identify comments written by the linter '''
-    buf = '''AUTOMATIC {} LINT RESULTS DO NOT EDIT\n'''.format(prefix)
+    buf = '''AUTOMATIC {} LINT RESULTS DO NOT EDIT\n'''.format(language.upper())
     return buf
 
 
-def get_lint_comment(base, api_key, pr_num):
+def get_lint_comment(base, api_key, pr_num, language):
     '''
     Retrieves all comments on an issue from github and searches for a
     comment starting with the string returned by get_header_string()
@@ -25,18 +26,18 @@ def get_lint_comment(base, api_key, pr_num):
     comment_id = None
     req = requests.get(url, headers=headers)
     for comment in req.json():
-        if comment['body'].startswith(get_header_string()):
+        if comment['body'].startswith(get_header_string(language)):
             comment_id = comment['id']
     return comment_id
 
 
-def create_or_update_lint_comment(base, api_key, pr_num, errors):
+def create_or_update_lint_comment(base, api_key, pr_num, errors, language):
     '''
     If we haven't already made a comment on a pull request then make
     a new one. Otherwise update that comment with the current error set.
     '''
-    body = get_header_string() + '\n' + generate_buf(errors)
-    comment_id = get_lint_comment(base, api_key, pr_num)
+    body = get_header_string(language) + '\n' + generate_buf(errors)
+    comment_id = get_lint_comment(base, api_key, pr_num, language)
     data = {'body': body}
     if comment_id:
         template = '/issues/comments/{comment_id}?access_token={api_key}'
@@ -56,7 +57,7 @@ def get_headers():
     return {'Accept': 'application/json'}
 
 
-def post_result(base, failed_files, api_key, sha, prefix='Python'):
+def post_result(base, failed_files, api_key, sha, language):
     '''
     Update the status for teh lint context per commit SHA
     '''
@@ -64,16 +65,14 @@ def post_result(base, failed_files, api_key, sha, prefix='Python'):
     url = base + template.format(sha=sha, api_key=api_key)
     if any(failed_files):
         status = 'failure'
-        description = '{} lint failed'.format(prefix)
-        # Sad Panda
+        description = '{} lint failed'.format(language)
         link = ''
     else:
         status = 'success'
-        description = '{} lint passed'.format(prefix)
-        # Just ship it
+        description = '{} lint passed'.format(language)
         link = ''
     data = {"state": status, "target_url": link,
-            "description": description, "context": "{} lint".format(prefix)}
+            "description": description, "context": "{} lint".format(language)}
     headers = {}
     headers['Accept'] = 'application/json'
     requests.post(url, data=json.dumps(data), headers=headers)
@@ -88,8 +87,8 @@ def generate_buf(errors):
         for fname, errors in errors.iteritems():
             msg += ['Lint Errors for {}'.format(fname)]
             for error in errors:
-                line_num, errstr = error
-                msg.append('\t{}:\t{}'.format(line_num, errstr))
+                line, col, errstr = error
+                msg.append('\n\t{},\t{}:\t{}'.format(line, col, errstr))
         msg = '\n'.join(msg)
     else:
         msg = 'Lint all good :shipit:'
@@ -113,20 +112,46 @@ def post_errors(errors, base, api_key, sha):
         requests.post(url, data=json.dumps(data), headers=headers)
 
 
-def get_errors(lint_output):
+def get_errors(lint_output, regex):
+    "^(?P<file>[^:]+):(?P<line>[0-9]+) (?P<errstr>.*)$"
     '''
     Given the lint output extract a dict of {fname: [errors]}
+
+    Some common regexs:
+        pyflakes: "^(?P<file>[^:]+):(?P<line>[0-9]+) (?P<errstr>[.*]+)$"
+        jshint: 
     '''
     errors = {}
+    total = "errors"
     for line in lint_output:
         if line:
-            fname, num, errstr = line.split(':')
-            errors.setdefault(fname, [])
-            errors[fname].append((num, errstr))
-    return errors
+            m = re.search(regex, line)
+            if m:
+                 data = {'file': '',
+                         'line': '',
+                         'errstr': '',
+                         'col': '0'}
+                 for k in data:
+                     try:
+                         data[k] = m.group(k)
+                     except IndexError:
+                         pass
+             
+                 errors.setdefault(data['file'], [])
+                 errors[data['file']].append((data['line'], data['col'], data['errstr']))
+            else:
+                 total = line
+    return errors, total
 
+def does_match(fname, patterns):
+    ret = False
+    for pattern in patterns:
+        if fnmatch.fnmatch(fname, pattern):
+            ret = True
+            break
+    return ret
 
-def run_lint(path, files, lint='pyflakes', pattern='*.py'):
+def run_lint(path, files, lint, patterns):
     '''
     Given a lint and file pattern run the lint over all files in the
     change set that match that pattern.
@@ -134,7 +159,7 @@ def run_lint(path, files, lint='pyflakes', pattern='*.py'):
     failed = []
     output = []
     for fname in files:
-        if not fnmatch.fnmatch(fname, pattern):
+        if does_match(fname, patterns) is False:
             continue
         try:
             subprocess.check_output([lint + " " + fname], shell=True, cwd=path)
@@ -163,6 +188,11 @@ def parse_args():
     p.add_argument('--pr-num', help='pull-request num', required=True)
     p.add_argument('--repo-base', help='repo-base-url', required=True)
     p.add_argument('--path', help='path to repo', required=True)
+    p.add_argument('--language', help='Language for the lint', required=True)
+    p.add_argument('--lint', help='Lint to run', required=True)
+    p.add_argument('--regex', help='Optional regex to parse lint output. '\
+                   + ' Supported named capture groups:\n\tfile, line, errstr, col')
+    p.add_argument('--patterns', help='Glob patterns to run on', required=True, nargs='+')
     p.add_argument('--gh-api-write',
                    help='gh api key used to post comments/status',
                    required=True)
@@ -181,11 +211,19 @@ def main():
     else:
         read_key = args.gh_api_write
     files = get_changed_files(read_key, args.repo_base, args.pr_num)
-    failed, errors = run_lint(args.path, files)
-    errors = get_errors(errors)
+    failed, errors = run_lint(args.path, files, args.lint, args.patterns)
+
+    # Some default regexs
+    if not args.regex:
+        default_regexs = {'pyflakes': "^(?P<file>[^:]+):(?P<line>[0-9]+): (?P<errstr>.+)$",
+                          'jshint': ''}
+        regex = default_regexs.get(args.lint) or '$^'
+    else:
+        regex = args.regex
+    errors, total = get_errors(errors, regex)
     create_or_update_lint_comment(args.repo_base, read_key,
-                                  args.pr_num, errors)
-    post_result(args.repo_base, failed, write_key, args.sha)
+                                  args.pr_num, errors, args.language)
+    post_result(args.repo_base, failed, write_key, args.sha, args.language)
 
 if __name__ == '__main__':
     main()
