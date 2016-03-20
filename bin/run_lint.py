@@ -119,7 +119,7 @@ def get_errors(lint_output, regex):
 
     Some common regexs:
         pyflakes: "^(?P<file>[^:]+):(?P<line>[0-9]+) (?P<errstr>[.*]+)$"
-        jshint: 
+        jshint: '^(?P<file>[^:]+): line (?P<line>[0-9]+), col (?P<col>[0-9]+), (?P<errstr>.+)$'
     '''
     errors = {}
     total = "errors"
