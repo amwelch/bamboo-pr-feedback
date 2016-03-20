@@ -85,10 +85,10 @@ def generate_buf(errors):
     if errors:
         msg = []
         for fname, errors in errors.iteritems():
-            msg += ['Lint Errors for {}'.format(fname)]
+            msg += ['__Lint Errors for {}__'.format(fname)]
             for error in errors:
                 line, col, errstr = error
-                msg.append('\n\t{},\t{}:\t{}'.format(line, col, errstr))
+                msg.append('\n\t{},{}:\t{}'.format(line, col, errstr))
         msg = '\n'.join(msg)
     else:
         msg = 'Lint all good :shipit:'
@@ -158,9 +158,8 @@ def run_lint(path, files, lint, patterns):
     '''
     failed = []
     output = []
+    files = [f for f in files if does_match(f, patterns)]
     for fname in files:
-        if does_match(fname, patterns) is False:
-            continue
         try:
             subprocess.check_output([lint + " " + fname], shell=True, cwd=path)
         except subprocess.CalledProcessError as e:
@@ -215,8 +214,8 @@ def main():
 
     # Some default regexs
     if not args.regex:
-        default_regexs = {'pyflakes': "^(?P<file>[^:]+):(?P<line>[0-9]+): (?P<errstr>.+)$",
-                          'jshint': ''}
+        default_regexs = {'pyflakes': '^(?P<file>[^:]+):(?P<line>[0-9]+): (?P<errstr>.+)$',
+                          'jshint': '^(?P<file>[^:]+): line (?P<line>[0-9]+), col (?P<col>[0-9]+), (?P<errstr>.+)$'}
         regex = default_regexs.get(args.lint) or '$^'
     else:
         regex = args.regex
