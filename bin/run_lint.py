@@ -2,6 +2,8 @@
 
 import requests
 import re
+import shutil
+import os
 import fnmatch
 import subprocess
 import argparse
@@ -112,7 +114,7 @@ def post_errors(errors, base, api_key, sha):
         requests.post(url, data=json.dumps(data), headers=headers)
 
 
-def get_errors(lint_output, regex):
+def get_errors(lint_output, regex, files):
     "^(?P<file>[^:]+):(?P<line>[0-9]+) (?P<errstr>.*)$"
     '''
     Given the lint output extract a dict of {fname: [errors]}
@@ -151,24 +153,49 @@ def does_match(fname, patterns):
             break
     return ret
 
-def run_lint(path, files, lint, patterns):
+def run_lint(files, lint, patterns, data_directory='/tmp/lint'):
     '''
     Given a lint and file pattern run the lint over all files in the
     change set that match that pattern.
     '''
     failed = []
+    before_output = []
     output = []
-    files = [f for f in files if does_match(f, patterns)]
-    for fname in files:
+    lint_files = [f for f in files.keys() if does_match(f, patterns)]
+    for fname in lint_files:
+
+        path = os.path.join(data_directory, fname)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        before = os.path.join(path, 'before')
+        after = os.path.join(path, 'after')
+
+        with open(before, 'w') as fp:
+            fp.write(files[f]['before'])
+        with open(after, 'w') as fp:
+            fp.write(files[f]['after'])
+
         try:
-            subprocess.check_output([lint + " " + fname], shell=True, cwd=path)
+            subprocess.check_output([lint + " " + before], shell=True, cwd=path)
         except subprocess.CalledProcessError as e:
-            output += e.output.split('\n')
-            failed.append(fname)
+            before_output += set(e.output.split('\n'))
+
+        try:
+            subprocess.check_output([lint + " " + after], shell=True, cwd=path)
+        except subprocess.CalledProcessError as e:
+            lines = e.output.split('\n')
+            lines in [l for l in lines if l not in before_output]
+            if lines:
+                output += lines
+                failed.append(fname)
+
+        shutil.rmtree(path)
+
     return failed, output
 
 
-def get_changed_files(api_key, repo_base, pr_num):
+def get_changed_files(api_key, read_api_key, repo_base, pr_num):
     '''
     Retrieve the list of changed files for a pull request
     '''
@@ -176,9 +203,19 @@ def get_changed_files(api_key, repo_base, pr_num):
     url = repo_base + template.format(num=pr_num, api_key=api_key)
     req = requests.get(url)
     data = req.json()
-    files = [v['filename'] for v in data]
-    return files
 
+    template = "/pulls/{num}?access_token={api_key}"
+    url = repo_base + template.format(num=pr_num, api_key=api_key)
+    base_sha = requests.get(url).json()['base']['sha']
+
+    files = {}
+    for v in data:
+        content_url = v['contents_url'] + '&access_token={api_key}'.format(api_key=api_key)
+        content = requests.get(content_url).json()['content'].decode('base64')
+        base_content_url = content_url.split('?')[0] + '?ref={sha}&access_token={api_key}'.format(sha=base_sha, api_key=api_key)
+        base_content = requests.get(base_content_url).json()['content'].decode('base64')
+        files[v['filename']] = {'after': content, 'before': base_content}
+    return files
 
 def parse_args():
     p = argparse.ArgumentParser(description='''
@@ -186,7 +223,6 @@ def parse_args():
     ''')
     p.add_argument('--pr-num', help='pull-request num', required=True)
     p.add_argument('--repo-base', help='repo-base-url', required=True)
-    p.add_argument('--path', help='path to repo', required=True)
     p.add_argument('--language', help='Language for the lint', required=True)
     p.add_argument('--lint', help='Lint to run', required=True)
     p.add_argument('--regex', help='Optional regex to parse lint output. '\
@@ -209,8 +245,8 @@ def main():
         read_key = args.gh_api_read
     else:
         read_key = args.gh_api_write
-    files = get_changed_files(read_key, args.repo_base, args.pr_num)
-    failed, errors = run_lint(args.path, files, args.lint, args.patterns)
+    files = get_changed_files(read_key, args.gh_api_write, args.repo_base, args.pr_num)
+    failed, errors = run_lint(files, args.lint, args.patterns)
 
     # Some default regexs
     if not args.regex:
@@ -219,7 +255,7 @@ def main():
         regex = default_regexs.get(args.lint) or '$^'
     else:
         regex = args.regex
-    errors, total = get_errors(errors, regex)
+    errors, total = get_errors(errors, regex, files)
     create_or_update_lint_comment(args.repo_base, read_key,
                                   args.pr_num, errors, args.language)
     post_result(args.repo_base, failed, write_key, args.sha, args.language)
