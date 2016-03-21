@@ -58,8 +58,17 @@ def get_headers():
     '''
     return {'Accept': 'application/json'}
 
+def upload_lint(api_key, output):
+    url = 'https://api.github.com/gists?access_token={}'.format(api_key)
+    data = {'description': 'Lint Results',
+            'public': False,
+            'files': {'Results.txt': {'content': output}}}
+    
+    response = requests.post(url, data=json.dumps(data))
+    return response.json()['html_url']
+    
 
-def post_result(base, failed_files, api_key, sha, language):
+def post_result(base, failed_files, api_key, sha, language, result_url):
     '''
     Update the status for teh lint context per commit SHA
     '''
@@ -68,12 +77,10 @@ def post_result(base, failed_files, api_key, sha, language):
     if any(failed_files):
         status = 'failure'
         description = '{} lint failed'.format(language)
-        link = ''
     else:
         status = 'success'
         description = '{} lint passed'.format(language)
-        link = ''
-    data = {"state": status, "target_url": link,
+    data = {"state": status, "target_url": result_url,
             "description": description, "context": "{} lint".format(language)}
     headers = {}
     headers['Accept'] = 'application/json'
@@ -161,38 +168,38 @@ def run_lint(files, lint, patterns, data_directory='/tmp/lint'):
     failed = []
     before_output = []
     output = []
+    all_output = []
     lint_files = [f for f in files.keys() if does_match(f, patterns)]
     for fname in lint_files:
 
         path = os.path.join(data_directory, fname)
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
 
-        before = os.path.join(path, 'before')
-        after = os.path.join(path, 'after')
-
-        with open(before, 'w') as fp:
-            fp.write(files[f]['before'])
-        with open(after, 'w') as fp:
-            fp.write(files[f]['after'])
+        with open(path, 'w') as fp:
+            fp.write(files[fname]['before'])
 
         try:
-            subprocess.check_output([lint + " " + before], shell=True, cwd=path)
+            subprocess.check_output([lint + " " + path], shell=True)
         except subprocess.CalledProcessError as e:
             before_output += set(e.output.split('\n'))
 
+        with open(path, 'w') as fp:
+            fp.write(files[fname]['after'])
         try:
-            subprocess.check_output([lint + " " + after], shell=True, cwd=path)
+            subprocess.check_output([lint + " " + path], shell=True)
         except subprocess.CalledProcessError as e:
+            all_output.append(lint + ' ' + fname)
+            all_output.append(e.output)
             lines = e.output.split('\n')
             lines in [l for l in lines if l not in before_output]
             if lines:
                 output += lines
                 failed.append(fname)
 
-        shutil.rmtree(path)
+        shutil.rmtree(data_directory)
 
-    return failed, output
+    return failed, output, '\n'.join(all_output)
 
 
 def get_changed_files(api_key, read_api_key, repo_base, pr_num):
@@ -225,6 +232,7 @@ def parse_args():
     p.add_argument('--repo-base', help='repo-base-url', required=True)
     p.add_argument('--language', help='Language for the lint', required=True)
     p.add_argument('--lint', help='Lint to run', required=True)
+    p.add_argument('--upload', help='Upload lint results to gist', action='store_true')
     p.add_argument('--regex', help='Optional regex to parse lint output. '\
                    + ' Supported named capture groups:\n\tfile, line, errstr, col')
     p.add_argument('--patterns', help='Glob patterns to run on', required=True, nargs='+')
@@ -246,7 +254,11 @@ def main():
     else:
         read_key = args.gh_api_write
     files = get_changed_files(read_key, args.gh_api_write, args.repo_base, args.pr_num)
-    failed, errors = run_lint(files, args.lint, args.patterns)
+    failed, errors, buf = run_lint(files, args.lint, args.patterns)
+    if args.upload:
+        result_url = upload_lint(write_key, buf)
+    else:
+        result_url = ''
 
     # Some default regexs
     if not args.regex:
@@ -258,7 +270,8 @@ def main():
     errors, total = get_errors(errors, regex, files)
     create_or_update_lint_comment(args.repo_base, read_key,
                                   args.pr_num, errors, args.language)
-    post_result(args.repo_base, failed, write_key, args.sha, args.language)
+    post_result(args.repo_base, failed, write_key, args.sha, args.language,
+                result_url)
 
 if __name__ == '__main__':
     main()
